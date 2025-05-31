@@ -38,6 +38,32 @@ def get_user_input():
     global start
     global pending 
     global results_buffer 
+
+    starting_boxes = {}
+
+    boxes = results_buffer[0][0].boxes
+    box_classes = boxes.cls.tolist()
+    for i in range(len(box_classes)):
+        if int(boxes.cls[i]) == 0: #box of humam
+            starting_boxes[int(boxes.id[i])] = []
+            #keep track of inital humans detected
+            #if we lose or gaina  huamn, automatically ignore it and don't 
+            #prompt user to classify
+    
+    print("initial boxes: ", starting_boxes)
+
+    for frame in results_buffer:
+        boxes = frame[0].boxes
+        for i in range(len(boxes.cls)):
+            print("boxes.cls[i]: ", int(boxes.cls[i]))
+            if int(boxes.cls[i]) == 0: #box of humam
+                if int(boxes.id[i])  in starting_boxes:
+                    #issue, not sure which keypoints correspond to which ID!
+                    print("keypoints formated like: ", frame[0].keypoints)
+                    #starting_boxes[boxes.id[i]].append()
+
+
+
     """
     for frame in results_buffer:
         user_input = input("Classify \n 1:jab | 2:straight | 3:lefthook | ...")
@@ -48,6 +74,7 @@ def get_user_input():
     print(f"You entered: {user_input}")
     start +=  40
     pending = False
+    results_buffer = []
 
 # Loop through the video frames
 
