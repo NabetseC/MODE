@@ -4,7 +4,7 @@ import threading
 from ultralytics import YOLO
 
 # Load the YOLO11 model
-model = YOLO("yolo11n.pt")
+model = YOLO("yolo11n-pose.pt")
 
 # Open the video file
 
@@ -38,29 +38,29 @@ def get_user_input():
     global start
     global pending 
     global results_buffer 
+    global cycles
+
+    print(cycles)
 
     starting_boxes = {}
 
-    boxes = results_buffer[0][0].boxes
-    box_classes = boxes.cls.tolist()
-    for i in range(len(box_classes)):
-        if int(boxes.cls[i]) == 0: #box of humam
-            starting_boxes[int(boxes.id[i])] = []
-            #keep track of inital humans detected
-            #if we lose or gaina  huamn, automatically ignore it and don't 
-            #prompt user to classify
+    for person_id, person in enumerate(results_buffer[0][0].keypoints):
+            #print("boxes.cls[i]: ", int(boxes.cls[i]))
+            starting_boxes[int(person_id)] = []
     
     print("initial boxes: ", starting_boxes)
 
     for frame in results_buffer:
-        boxes = frame[0].boxes
-        for i in range(len(boxes.cls)):
-            print("boxes.cls[i]: ", int(boxes.cls[i]))
-            if int(boxes.cls[i]) == 0: #box of humam
-                if int(boxes.id[i])  in starting_boxes:
-                    #issue, not sure which keypoints correspond to which ID!
-                    print("keypoints formated like: ", frame[0].keypoints)
-                    #starting_boxes[boxes.id[i]].append()
+        #boxes = frame[0].boxes
+        for person_id, person in enumerate(frame[0].keypoints):
+            #print("boxes.cls[i]: ", int(boxes.cls[i]))
+            print("id: ", person_id)
+            print("id in starting boxer? ", int(person_id)  in starting_boxes)
+            if int(person_id)  in starting_boxes:
+                #issue, not sure which keypoints correspond to which ID!
+                keypoints = person.xy
+                print("id: ",int(person_id) ," keypoints formated like: ", keypoints)
+                #starting_boxes[boxes.id[i]].append()
 
 
 
@@ -72,6 +72,7 @@ def get_user_input():
     """
     user_input = input("testing threading!")
     print(f"You entered: {user_input}")
+    cycles += 1
     start +=  40
     pending = False
     results_buffer = []
@@ -86,6 +87,9 @@ def play_video(video_path, set_start = 0):
     start = set_start
     cap = cv2.VideoCapture(video_path)
     frames = 0
+
+    global cycles
+    cycles = 0
 
     global results_buffer 
     results_buffer = []
@@ -102,6 +106,19 @@ def play_video(video_path, set_start = 0):
 
             results = model.track(frame, persist=True, conf = .6, verbose = False)
             annotated_frame = results[0].plot()
+
+            for person_id, person in enumerate(results[0].keypoints):
+            #print("boxes.cls[i]: ", int(boxes.cls[i]))
+                if(person.conf is not None):
+                    print(person.xy)
+                    kpt = person.xy.tolist()
+                    print("kpts: ", kpt)
+                    kpt = kpt[0][13]
+                    x, y = int(kpt[0]), int(kpt[1])
+                    print("person id: ", int(person_id))
+                    cv2.putText(annotated_frame, str(int(person_id)), (x,y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+                    cv2.rectangle(annotated_frame, (x-10,y-10), (x+10,y+10), (255, 0, 104), 2, -1)
+
 
             # Display the annotated frame
             cv2.imshow("YOLO11 Tracking", annotated_frame)
