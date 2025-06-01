@@ -3,6 +3,9 @@ import threading
 
 from ultralytics import YOLO
 
+import numpy as np
+import os
+
 # Load the YOLO11 model
 model = YOLO("yolo11n-pose.pt")
 
@@ -10,6 +13,29 @@ model = YOLO("yolo11n-pose.pt")
 
 
 #Helper functions:
+
+
+txt_to_move = {1:"jab", 2:"straight", 3:"left_hook", 4:"right_hook"}
+move_to_txt = {"jab":1, "straight":2, "left_hook":3, "right_hook":4}
+
+"""
+dictionary listing the next index for data input at each folder location
+helps avoid overwriting or manually adjusting things
+"""
+next_idx = {1: 0, 2: 0,3:0,4:0}
+
+for file in os.listdir("./data"):
+    sd = os.listdir("./data/",file)
+    next_idx[move_to_txt[file]] = int(sd[-1][:-4])
+
+
+
+def ang_calc(a,b,c):
+    print("math")
+    return 
+def kpt_to_angles(kpts):
+
+    return 
 
 def get_user_input():
     global start
@@ -59,6 +85,13 @@ def get_user_input():
             """
                 Here , depending on user input, save angles from the boxer to some local folder
             """
+            if user_input in txt_to_move:
+                angles = kpt_to_angles(starting_boxes[key])
+                np.save(f"./data/{txt_to_move[user_input]}/{next_idx[user_input]}.npy", angles)
+                next_idx[user_input] += 1
+                print("saved")
+            else:
+                print("discarded")
 
 
 
