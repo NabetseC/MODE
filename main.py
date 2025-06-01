@@ -132,7 +132,7 @@ def human_classification(video_path,out_path):
     print("loading")
 
 #remove_edges("./videos/canelo1.mp4", 277, 3033, "./videos/caneloOut.mp4")
-split_video("./videos/canelo1.mp4","./videos/cropped_vids/canelo1.mp4",360,60, 277, 3033)
+split_video("./videos/canelo2.mp4","./videos/cropped_vids/canelo2.mp4",360,0, 30, 1800)
 
         
         

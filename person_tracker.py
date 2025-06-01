@@ -11,58 +11,36 @@ model = YOLO("yolo11n-pose.pt")
 
 #Helper functions:
 
-def play_video_loop(video_path, start):
-    global exit_flag
-    cap = cv2.VideoCapture(video_path)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, start)
-    mf = 0
-
-    if not cap.isOpened():
-        print("Error opening video file")
-        return
-
-    while not exit_flag:
-        ret, frame = cap.read()
-        mf += 1
-        if mf == 40:
-            # Restart video
-            cap.set(cv2.CAP_PROP_POS_FRAMES, start)
-            continue
-
-        cv2.imshow("Video Loop", frame)
-        if cv2.waitKey(30) & 0xFF == ord('q'):
-            exit_flag = True
-            break
-
 def get_user_input():
     global start
     global pending 
     global results_buffer 
     global cycles
+    global frames 
 
-    print(cycles)
+
+    print("input length: ", len(results_buffer))
 
     starting_boxes = {}
 
-    for person_id, person in enumerate(results_buffer[0][0].keypoints):
-            #print("boxes.cls[i]: ", int(boxes.cls[i]))
-            starting_boxes[int(person_id)] = []
-    
-    print("initial boxes: ", starting_boxes)
+    boxes = results_buffer[0][0].boxes
+
+    for i in range(len(boxes.cls)):
+        if int(boxes.cls[i]) == 0: #box of humam
+            starting_boxes[int(boxes.id[i])] = []
 
     for frame in results_buffer:
-        #boxes = frame[0].boxes
+        boxes = frame[0].boxes
         for person_id, person in enumerate(frame[0].keypoints):
-            #print("boxes.cls[i]: ", int(boxes.cls[i]))
-            print("id: ", person_id)
-            print("id in starting boxer? ", int(person_id)  in starting_boxes)
-            if int(person_id)  in starting_boxes:
-                #issue, not sure which keypoints correspond to which ID!
-                keypoints = person.xy
-                print("id: ",int(person_id) ," keypoints formated like: ", keypoints)
-                #starting_boxes[boxes.id[i]].append()
-
-
+                for i in range(len(boxes.cls)):
+                    if boxes.id is not None and int(boxes.id[i]) in starting_boxes: #box of humam
+                            keypoints = person.xy
+                            left_hip = keypoints[0][11]
+                            x, y = left_hip[0], left_hip[1]
+                            xs, ys, xb, yb = boxes.xyxy[0][0], boxes.xyxy[0][1], boxes.xyxy[0][2], boxes.xyxy[0][3]
+                            if x>= xs and x<=xb and y>= ys and y<= yb:
+                                starting_boxes[int(boxes.id[i])].append(keypoints)
+ 
 
     """
     for frame in results_buffer:
@@ -70,8 +48,21 @@ def get_user_input():
 
         #save data at corresponding location
     """
-    user_input = input("testing threading!")
-    print(f"You entered: {user_input}")
+
+    for key in starting_boxes:
+        if len(starting_boxes[key]) != 40:
+            continue
+        else:
+            print("Salutations, please classify or discard boxer ", key )
+            user_input = input("[label rules]")
+            print(f"You entered: {user_input}")
+            """
+                Here , depending on user input, save angles from the boxer to some local folder
+            """
+
+
+
+    frames = frames - 40
     cycles += 1
     start +=  40
     pending = False
@@ -86,7 +77,8 @@ def play_video(video_path, set_start = 0):
     pending = False
     start = set_start
     cap = cv2.VideoCapture(video_path)
-    frames = 0
+    global frames 
+    frames= 0
 
     global cycles
     cycles = 0
@@ -110,22 +102,23 @@ def play_video(video_path, set_start = 0):
             for person_id, person in enumerate(results[0].keypoints):
             #print("boxes.cls[i]: ", int(boxes.cls[i]))
                 if(person.conf is not None):
-                    print(person.xy)
+                    #print(person.xy)
                     kpt = person.xy.tolist()
-                    print("kpts: ", kpt)
+                    #print("kpts: ", kpt)
                     kpt = kpt[0][13]
                     x, y = int(kpt[0]), int(kpt[1])
-                    print("person id: ", int(person_id))
+                    #print("person id: ", int(person_id))
                     cv2.putText(annotated_frame, str(int(person_id)), (x,y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
                     cv2.rectangle(annotated_frame, (x-10,y-10), (x+10,y+10), (255, 0, 104), 2, -1)
 
 
             # Display the annotated frame
             cv2.imshow("YOLO11 Tracking", annotated_frame)
-            if not pending:
+            if not pending and frames >=0:
+                print(frames)
                 results_buffer.append(results)
 
-            if frames % 40  == 0 and frames > 0:
+            if frames % 39  == 0 and frames > 0:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, start)
                 if not pending:
                     pending = True
@@ -154,4 +147,4 @@ def play_video(video_path, set_start = 0):
     cap.release()
     cv2.destroyAllWindows()
 
-play_video("./videos/cropped_vids/canelo1.mp4")
+play_video("./videos/cropped_vids/canelo2.mp4")
