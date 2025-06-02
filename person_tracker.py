@@ -13,29 +13,96 @@ model = YOLO("yolo11n-pose.pt")
 
 
 #Helper functions:
-
-
-txt_to_move = {1:"jab", 2:"straight", 3:"left_hook", 4:"right_hook"}
-move_to_txt = {"jab":1, "straight":2, "left_hook":3, "right_hook":4}
+txt_to_move = {0:"block", 1:"jab", 2:"straight", 3:"left_hook", 4:"right_hook", 5:"left_uppercut", 6:"right_uppercut"}
+move_to_txt = {"block":0,"jab":1, "straight":2, "left_hook":3, "right_hook":4, "left_uppercut":5, "right_uppercut":6}
 
 """
 dictionary listing the next index for data input at each folder location
 helps avoid overwriting or manually adjusting things
 """
-next_idx = {1: 0, 2: 0,3:0,4:0}
+next_idx = {0:0,1: 0, 2: 0,3:0,4:0, 5:0, 6:0 }
 
 for file in os.listdir("./data"):
-    sd = os.listdir("./data/",file)
-    next_idx[move_to_txt[file]] = int(sd[-1][:-4])
+    loc = "./data/"+file
+    sd = os.listdir(loc)
+    
+    if len(sd) != 0:
+        next_idx[move_to_txt[file]] = int(sd[-1][:-4])+1
+    else:
+        next_idx[move_to_txt[file]] = 0
+
+print(next_idx)
+        
 
 
 
 def ang_calc(a,b,c):
-    print("math")
-    return 
-def kpt_to_angles(kpts):
+    p1 = np.array(a)
+    p2 = np.array(b)
+    p3 = np.array(c)
 
-    return 
+    print("p1: ", p1)
+    print("p2: ", p2)
+    print("p3: ", p3)
+
+    rads = np.arctan2(p3[1] - p2[1], p3[0] - p2[0]) - np.arctan2(p1[1] - p2[1], p1[0] - p2[0])
+    angle = np.round(abs(rads * (180/np.pi)))
+
+    if angle > 180:
+        return 360 - angle 
+    else:
+        return angle 
+
+def kpt_to_angles(pkt_points):
+
+    #right hemi
+    total = []
+    for kpts in pkt_points:
+        print("keypoints: ", kpts)
+        right_wrist = [kpts[10][0], kpts[10][1]]
+        right_elbow = [kpts[8][0], kpts[8][1]]
+        right_shoulder = [kpts[6][0], kpts[6][1]]
+            
+        rightElbow_angle = ang_calc(right_wrist, right_elbow, right_shoulder)
+
+        right_hip = [kpts[12][0], kpts[12][1]]
+        rightShoulder_angle = ang_calc(right_elbow, right_shoulder, right_hip)
+
+        right_knee = [kpts[14][0], kpts[14][1]]
+        rightHip_angle = ang_calc(right_shoulder, right_hip, right_knee)
+
+        right_ankle = [kpts[16][0], kpts[16][1]]
+        rightKnee_angle = ang_calc(right_hip, right_knee, right_ankle)
+
+        #left hemi
+        left_wrist = [kpts[9][0], kpts[9][1]]
+        left_elbow = [kpts[7][0], kpts[7][1]]
+        left_shoulder = [kpts[5][0], kpts[5][1]]
+            
+        leftElbow_angle = ang_calc(left_wrist, left_elbow, left_shoulder)
+
+        left_hip = [kpts[11][0], kpts[11][1]]
+        leftShoulder_angle = ang_calc(left_elbow, left_shoulder, left_hip)
+
+        left_knee = [kpts[13][0], kpts[13][1]]
+        leftHip_angle = ang_calc(left_shoulder, left_hip, left_knee)
+
+        left_ankle = [kpts[15][0], kpts[15][1]]
+        leftKnee_angle = ang_calc(left_hip, left_knee, left_ankle)
+
+        angles = [
+            rightElbow_angle, 
+            rightShoulder_angle, 
+            rightHip_angle, 
+            rightKnee_angle, 
+            leftElbow_angle, 
+            leftShoulder_angle,
+            leftHip_angle,
+            leftKnee_angle
+            ]
+
+        total.append(angles)
+    return total
 
 def get_user_input():
     global start
@@ -60,35 +127,29 @@ def get_user_input():
         for person_id, person in enumerate(frame[0].keypoints):
                 for i in range(len(boxes.cls)):
                     if boxes.id is not None and int(boxes.id[i]) in starting_boxes: #box of humam
-                            keypoints = person.xy
-                            left_hip = keypoints[0][11]
+                            keypoints = person.xy[0]
+                            #angles = kpt_to_angles(keypoints[0]) could calculate angles for everyone, if angle can't be made then discard
+                            left_hip = keypoints[11]
                             x, y = left_hip[0], left_hip[1]
                             xs, ys, xb, yb = boxes.xyxy[0][0], boxes.xyxy[0][1], boxes.xyxy[0][2], boxes.xyxy[0][3]
                             if x>= xs and x<=xb and y>= ys and y<= yb:
                                 starting_boxes[int(boxes.id[i])].append(keypoints)
  
 
-    """
-    for frame in results_buffer:
-        user_input = input("Classify \n 1:jab | 2:straight | 3:lefthook | ...")
-
-        #save data at corresponding location
-    """
-
     for key in starting_boxes:
         if len(starting_boxes[key]) != 40:
             continue
         else:
             print("Salutations, please classify or discard boxer ", key )
-            user_input = input("[label rules]")
+            user_input = input("0:block | 1:jab | 2:straight | 3:lefthook | 4:righthook | 5:leftuppercut | 6:rightuppercut | else discard")
             print(f"You entered: {user_input}")
             """
                 Here , depending on user input, save angles from the boxer to some local folder
             """
-            if user_input in txt_to_move:
+            if user_input.isdigit() and int(user_input) in txt_to_move:
                 angles = kpt_to_angles(starting_boxes[key])
-                np.save(f"./data/{txt_to_move[user_input]}/{next_idx[user_input]}.npy", angles)
-                next_idx[user_input] += 1
+                np.save(f"./data/{txt_to_move[int(user_input)]}/{next_idx[int(user_input)]}.npy", angles)
+                next_idx[int(user_input)] += 1
                 print("saved")
             else:
                 print("discarded")
@@ -105,10 +166,12 @@ def get_user_input():
 
 #set_start if you want to skip to some point the fight when starting progrm
 def play_video(video_path, set_start = 0):
+    #set start is in seconds, however cap.set takes frame index
+    #multiply seconds by fps(30)
     global start
     global pending 
     pending = False
-    start = set_start
+    start = set_start*30
     cap = cv2.VideoCapture(video_path)
     global frames 
     frames= 0
@@ -180,4 +243,4 @@ def play_video(video_path, set_start = 0):
     cap.release()
     cv2.destroyAllWindows()
 
-play_video("./videos/cropped_vids/canelo2.mp4")
+play_video("./videos/cropped_vids/canelo2.mp4", 33)
